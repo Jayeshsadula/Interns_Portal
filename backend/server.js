@@ -1,20 +1,22 @@
-import app from "./src/app.js"
-import connectToDB from "./src/config/database.js"
-import { scheduleInternshipStatusJob } from "./src/jobs/internshipStatus.job.js"
-import { scheduleRetentionJob } from "./src/jobs/retention.job.js"
+import app from "./src/app.js";
+import connectToDB from "./src/config/database.js";
+import { scheduleInternshipStatusJob } from "./src/jobs/internshipStatus.job.js";
+import { scheduleRetentionJob } from "./src/jobs/retention.job.js";
+
+const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
     await connectToDB();
+
     scheduleInternshipStatusJob();
     scheduleRetentionJob();
 
-    app.listen(3000, () => {
-        console.log("server is listening on port 3000")
+    app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server is listening on port ${PORT}`);
     });
 };
 
 startServer().catch((error) => {
     console.error("Server startup failed", error);
-    process.exitCode = 1;
+    process.exit(1);
 });
-
