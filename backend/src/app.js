@@ -11,38 +11,47 @@ import teamleaderRouter from './routes/teamleader.routes.js';
 import { verifyCertificatePublic } from './controllers/admin.controller.js';
 import analyticsRouter from "./routes/adminAnalytics.routes.js";
 
-
 // Use public DNS providers (Cloudflare and Google) to avoid local DNS issues.
-// Remove or modify if you rely on system DNS or have internal DNS requirements.
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Running on ${PORT}`));
 
-// Allow the frontend to send and receive the authentication cookie.
-app.use(cors({
-	origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-	credentials: true
-}));
+// Render sits behind a proxy; needed for secure cookies
+app.set('trust proxy', 1);
 
-// Parse JSON request bodies and populate `req.body`.
+// Allowed frontends (strip trailing slash from env value just in case)
+const allowedOrigins = [
+	'http://localhost:5173',
+	process.env.FRONTEND_URL?.replace(/\/$/, ''),
+].filter(Boolean);
+
+const corsOptions = {
+	origin: (origin, callback) => {
+		// allow Postman/curl (no origin) and listed frontends
+		if (!origin || allowedOrigins.includes(origin)) {
+			return callback(null, true);
+		}
+		return callback(new Error(`CORS blocked: ${origin}`));
+	},
+	credentials: true,
+	methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+	allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
-
-// Parse cookies and populate `req.cookies`.
 app.use(cookieParser());
 
-// Mount authentication routes at `/api/auth` (e.g., `/api/auth/login`).
+// Health check (useful for Render + quick browser test)
+app.get('/', (req, res) => res.send('Intern Portal API is running'));
+
 app.use('/api/auth', authRouter);
-
 app.use('/api/intern', internRouter);
-
 app.use('/api/notifications', notificationRouter);
-
 app.use('/api/admin/analytics', analyticsRouter);
-
 app.use('/api/admin', adminRouter);
-
 app.use('/api/teamleader', teamleaderRouter);
 
 app.get('/api/public/certificates/verify', verifyCertificatePublic);
